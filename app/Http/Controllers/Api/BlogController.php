@@ -3,14 +3,18 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\Blog;
+use App\Traits\HasImage;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use App\Helpers\ResponseFormatter;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Validator;
+use App\Http\Requests\StoreBlogRequest;
+use App\Http\Requests\UpdateBlogRequest;
 
 class BlogController extends Controller
 {
+    use HasImage;
+
     public function index()
     {
         try {
@@ -21,24 +25,22 @@ class BlogController extends Controller
         }
     }
 
-    public function store(Request $request)
+    public function store(StoreBlogRequest $request)
     {
-        $validator = Validator::make($request->all(),[
-            'title' => 'required|unique:blogs',
-            'body'  => 'required'
-        ]);
+        try {
+            $image = $request->file('image');
+            $this->uploadImage($image, 'blog');
 
-        if($validator->fails()){
-            return ResponseFormatter::error($validator->errors());
-        }else{
-            try {
-                $slug = Str::slug($request->title);
-                $request->request->add(['slug' => $slug]);
-                $data = Blog::Create($request->all());
-                return ResponseFormatter::success($data,'Store Blog Successfully');
-            } catch (\Exception $e) {
-                return ResponseFormatter::error("",$e->getMessage());
-            }
+            $slug = Str::slug($request->title);
+            $data = Blog::Create([
+                'title' => $request->title,
+                'body' => $request->body,
+                'slug' => $slug,
+                'image' => $image->hashName()
+            ]);
+            return ResponseFormatter::success($data,'Store Blog Successfully');
+        } catch (\Exception $e) {
+            return ResponseFormatter::error("",$e->getMessage());
         }
     }
 
@@ -51,30 +53,38 @@ class BlogController extends Controller
         }
     }
 
-    public function update(Request $request, Blog $blog)
+    public function update(UpdateBlogRequest $request, Blog $blog)
     {
-        $validator = Validator::make($request->all(),[
-            'title' => 'required|unique:blogs,title,'.$blog->id,
-            'body'  => 'required'
-        ]);
+        try {
+            $slug = Str::slug($request->title);
+            $request->request->add(['slug' => $slug]);
 
-        if($validator->fails()){
-            return ResponseFormatter::error($validator->errors());
-        }else{
-            try {
-                $slug = Str::slug($request->title);
-                $request->request->add(['slug' => $slug]);
-                $blog->update($request->all());
-                return ResponseFormatter::success($blog,'Update Blog Successfully');
-            } catch (\Exception $e) {
-                return ResponseFormatter::error("",$e->getMessage());
+            if ($request->hasFile('image') && $request->image != null) {
+                $image = $request->file('image');
+                $this->updateImage($image, $blog->image, 'blog');
+                $blog->update([
+                    'title' => $request->title,
+                    'body' => $request->body,
+                    'slug' => $slug,
+                    'image' => $image->hashName()
+                ]);
+            }else{
+                $blog->update([
+                    'title' => $request->title,
+                    'body' => $request->body,
+                    'slug' => $slug
+                ]);
             }
+            return ResponseFormatter::success($blog,'Update Blog Successfully');
+        } catch (\Exception $e) {
+            return ResponseFormatter::error("",$e->getMessage());
         }
     }
 
     public function destroy(Blog $blog)
     {
         try {
+            $this->removeImage($blog->image, 'blog');
             $blog->delete();
             return ResponseFormatter::success($blog,'Delete Blog Successfully');
         } catch (\Exception $e) {
