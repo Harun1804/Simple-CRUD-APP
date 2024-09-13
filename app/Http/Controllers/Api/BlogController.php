@@ -18,7 +18,7 @@ class BlogController extends Controller
     public function index()
     {
         try {
-            $data = Blog::orderByDesc('id')->get();
+            $data = Blog::orderByDesc('id')->paginate(10);
             return ResponseFormatter::success($data,'Get Blogs Successfully');
         } catch (\Exception $e) {
             return ResponseFormatter::error("",$e->getMessage());
