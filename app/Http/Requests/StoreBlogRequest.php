@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests;
 
+use App\Helpers\ResponseFormatter;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Contracts\Validation\Validator;
 
 class StoreBlogRequest extends FormRequest
 {
@@ -26,5 +28,14 @@ class StoreBlogRequest extends FormRequest
             'body'  => 'required',
             'image' => 'required|image|mimes:jpeg,png,jpg|max:2048'
         ];
+    }
+
+    public function failedValidation(Validator $validator)
+    {
+        if ($validator->fails()) {
+            return ResponseFormatter::error(
+            $validator->errors(),
+            'Validation Error',422);
+        }
     }
 }
